@@ -1,8 +1,23 @@
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
+from flask_swagger_ui import get_swaggerui_blueprint
 
 app = Flask(__name__)
 CORS(app)  # This will enable CORS for all routes
+
+
+# Swagger UI configuration
+SWAGGER_URL = "/api/docs"  # URL for exposing Swagger UI (frontend)
+API_URL = "/static/masterblog.json"  # Path to your Swagger JSON spec
+
+swagger_ui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={'app_name': 'Masterblog API'}
+)
+
+app.register_blueprint(swagger_ui_blueprint, url_prefix=SWAGGER_URL)
+
 
 POSTS = [
     {"id": 1, "title": "First post", "content": "This is the first post."},
@@ -31,7 +46,7 @@ def handle_posts():
         # Get the new post data from the client
         new_post = request.get_json()
         if not validate_post_data(new_post):
-            return jsonify({"error": "Invalid post data. Must include a title and content"}), 400
+            return jsonify({"error": "Invalid post data. Must include a title and content."}), 400
         
         # Generate a new ID for the post
         new_id = max(post['id'] for post in POSTS) + 1
@@ -40,8 +55,26 @@ def handle_posts():
         POSTS.append(new_post)
         return jsonify(new_post), 201
 
-    # GET request to return all posts
-    return jsonify(POSTS)
+    else:
+        sort = request.args.get('sort')
+        direction = request.args.get('direction')
+
+        # Validate parameters
+        if sort and sort not in ['title', 'content']:
+            return jsonify({"error": f"Invalid sort field {sort}. Must be 'title' or 'content'."}), 400
+        
+        if direction and direction not in ['asc', 'desc']:
+            return jsonify({"error": f"Invalid direction: {direction}. Must be 'asc' or 'desc'."}), 400
+
+        # Sort if params are valid
+        if sort:
+            # True if descending, in sorted() reverse=True sorts in desc order
+            reverse = direction == 'desc'
+            sorted_posts = sorted(POSTS, key=lambda post: post[sort].lower(), reverse=reverse)
+            return sorted_posts
+
+        # No sorting: return original order
+        return jsonify(POSTS)
 
 
 @app.route('/api/posts/<int:id>', methods=['DELETE'])
@@ -77,6 +110,27 @@ def update_post(id):
 
     # Return the updated post
     return jsonify(post)
+
+
+@app.route('/api/posts/search', methods=['GET'])
+def search_post():
+     # Handle the GET request with a query parameter
+    title = request.args.get('title', '').lower()
+    content = request.args.get('content', '').lower()
+
+    if not title and not content:
+        # Return empty list if no search criteria
+        return jsonify([])
+   
+    # Check if 'title' = substring of post's title if 'title' provided
+    # If 'title' = empty string return False, so no match (same for 'content')
+    filtered_posts = [
+        post for post in POSTS 
+        if (title in post['title'].lower() if title else False)
+        or (content in post['content'].lower() if content else False)
+    ]
+
+    return jsonify(filtered_posts)
 
 
 @app.errorhandler(404)

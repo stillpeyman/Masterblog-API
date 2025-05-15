@@ -1,0 +1,238 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Masterblog API",
+    "version": "1.0.0",
+    "description": "API for managing blog posts (CRUD operations and search)."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5002",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Posts",
+      "description": "Blog Post API - CRUD"
+    }
+  ],
+  "paths": {
+    "/api/posts": {
+      "get": {
+        "tags": ["Posts"],
+        "summary": "Get all blog posts",
+        "parameters": [
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Field to sort by (title or content)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["title", "content"]
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "description": "Sort direction (asc or desc)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of blog posts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Post" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Posts"],
+        "summary": "Create a new blog post",
+        "requestBody": {
+          "description": "New blog post data",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NewPost" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Post created successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Post" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid post data",
+            "content": {
+              "application/json": {
+                "example": { "error": "Invalid post data. Must include a title and content." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/posts/{id}": {
+      "put": {
+        "tags": ["Posts"],
+        "summary": "Update an existing post by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID of the post to update",
+            "required": true,
+            "schema": { "type": "integer", "format": "int32" }
+          }
+        ],
+        "requestBody": {
+          "description": "Updated post data (title and/or content)",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdatePost" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Post updated successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Post" }
+              }
+            }
+          },
+          "404": {
+            "description": "Post not found",
+            "content": {
+              "application/json": {
+                "example": { "error": "Not Found", "message": "Post not found" }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type (non-JSON request)",
+            "content": {
+              "application/json": {
+                "example": { "error": "Request must be JSON", "message": "Request must be JSON" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Posts"],
+        "summary": "Delete a post by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID of the post to delete",
+            "required": true,
+            "schema": { "type": "integer", "format": "int32" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Post" }
+              }
+            }
+          },
+          "404": {
+            "description": "Post not found",
+            "content": {
+              "application/json": {
+                "example": { "error": "Not Found", "message": "Post not found" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/posts/search": {
+      "get": {
+        "tags": ["Posts"],
+        "summary": "Search posts by title and/or content",
+        "parameters": [
+          {
+            "name": "title",
+            "in": "query",
+            "description": "Substring to search for in post titles",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "content",
+            "in": "query",
+            "description": "Substring to search for in post content",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of posts matching search criteria",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Post" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Post": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "title": { "type": "string", "example": "First post" },
+          "content": { "type": "string", "example": "This is the first post." }
+        },
+        "required": ["id", "title", "content"]
+      },
+      "NewPost": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "example": "New post title" },
+          "content": { "type": "string", "example": "New post content" }
+        },
+        "required": ["title", "content"]
+      },
+      "UpdatePost": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "example": "Updated title" },
+          "content": { "type": "string", "example": "Updated content" }
+        }
+      }
+    }
+  }
+}
