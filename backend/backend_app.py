@@ -1,6 +1,10 @@
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
+from datetime import datetime, timezone
+import pytz
+import json
+import os
 
 app = Flask(__name__)
 CORS(app)  # This will enable CORS for all routes
@@ -19,48 +23,121 @@ swagger_ui_blueprint = get_swaggerui_blueprint(
 app.register_blueprint(swagger_ui_blueprint, url_prefix=SWAGGER_URL)
 
 
-POSTS = [
-    {"id": 1, "title": "First post", "content": "This is the first post."},
-    {"id": 2, "title": "Second post", "content": "This is the second post."},
-]
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA = os.path.join(BASE_DIR, "data", "posts.json")
+
+
+def parse_berlin_datetime(date_input):
+    """
+    Parse date/time input (str or datetime object) 
+    and return a timezone-aware datetime in Berlin time.
+    """
+    berlin = pytz.timezone("Europe/Berlin")
+
+    if isinstance(date_input, datetime):
+        # If already timezone-aware (like UTC), convert to Berlin
+        if date_input.tzinfo:
+            return date_input.astimezone(berlin)
+        # If naive datetime (no tzinfo), localize to Berlin
+        return berlin.localize(date_input)
+    
+    elif isinstance(date_input, str):
+        # Parse from string and localize to Berlin
+        try:
+            dt = datetime.strptime(date_input, "%Y-%m-%d %H:%M:%S")
+            return berlin.localize(dt)
+        except ValueError:
+            raise ValueError("Date string must be in format 'YYYY-MM-DD HH:MM:SS'")
+    
+    else:
+        raise TypeError("date_input must be a datetime object or a string.")
+
+
+def load_data():
+    if not os.path.exists(DATA):
+        return []
+    
+    try:
+        with open(DATA, 'r', encoding='utf-8') as handle:
+            posts = json.load(handle)
+            # Convert 'date' strings back to datetime obj
+            for post in posts:
+                post['date'] = parse_berlin_datetime(post['date'])
+            return posts
+    
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"Error reading {DATA}: {e}")
+        return []
+    
+
+def save_data(posts):
+    try:
+        # Convert datetime obj to strings
+        posts_to_save = []
+        for post in posts:
+            post_copy = post.copy()
+            post_copy['date'] = post_copy['date'].strftime("%Y-%m-%d %H:%M:%S")
+            posts_to_save.append(post_copy)
+        
+        with open(DATA, 'w', encoding='utf-8') as handle:
+            json.dump(posts_to_save, handle, indent=4)
+    
+    except IOError as e:
+        print(f"Error writing {DATA}: {e}")
 
 
 def validate_post_data(data):
-    if "title" not in data or "content" not in data:
-        return False
-    return True
+    required_keys = ["title", "content", "author"]
+    # For each key in required_keys returns True if that key exists in data
+    # all() checks for all keys
+    return all(key in data for key in required_keys)
 
 
-def find_post_by_id(post_id):
+def find_post_by_id(post_id, posts):
     """
-    Find the post with the id <post_id>.
+    Find the post with the id <post_id> in list of posts.
     If there is no post with this id, return None.
     """
-    post = next((post for post in POSTS if post['id'] == post_id), None)
-    return post
+    return next((post for post in posts if post['id'] == post_id), None)
+
+
+def serialize_post(post):
+    """
+    Convert a post dictionary with a datetime object in 'date' field
+    into a JSON-serializable dict by formatting the datetime as a string.
+    """
+    return {
+        **post,
+        "date": post["date"].strftime("%Y-%m-%d %H:%M:%S")
+    }
 
 
 @app.route('/api/posts', methods=['GET', 'POST'])
 def handle_posts():
+    posts = load_data()
+
     if request.method == 'POST':
         # Get the new post data from the client
         new_post = request.get_json()
         if not validate_post_data(new_post):
-            return jsonify({"error": "Invalid post data. Must include a title and content."}), 400
+            return jsonify({"error": "Invalid post data. Must include title, content and author."}), 400
         
         # Generate a new ID for the post
-        new_id = max(post['id'] for post in POSTS) + 1
+        new_id = max((post['id'] for post in posts if posts), default=0) + 1
         new_post['id'] = new_id
+        new_post['date'] = parse_berlin_datetime(datetime.now(timezone.utc))
         
-        POSTS.append(new_post)
-        return jsonify(new_post), 201
+        posts.append(new_post)
+        save_data(posts)
+
+        return jsonify(serialize_post(new_post)), 201
 
     else:
         sort = request.args.get('sort')
         direction = request.args.get('direction')
 
         # Validate parameters
-        if sort and sort not in ['title', 'content']:
+        if sort and sort not in ['title', 'content', 'author', 'date']:
             return jsonify({"error": f"Invalid sort field {sort}. Must be 'title' or 'content'."}), 400
         
         if direction and direction not in ['asc', 'desc']:
@@ -70,30 +147,36 @@ def handle_posts():
         if sort:
             # True if descending, in sorted() reverse=True sorts in desc order
             reverse = direction == 'desc'
-            sorted_posts = sorted(POSTS, key=lambda post: post[sort].lower(), reverse=reverse)
-            return sorted_posts
+            if sort == 'date':
+                sorted_posts = sorted(posts, key=lambda post: post['date'], reverse=reverse)
+            else:
+                sorted_posts = sorted(posts, key=lambda post: post[sort].lower(), reverse=reverse)
+            return jsonify([serialize_post(post) for post in sorted_posts])
 
         # No sorting: return original order
-        return jsonify(POSTS)
+        return jsonify([serialize_post(post) for post in posts])
 
 
 @app.route('/api/posts/<int:id>', methods=['DELETE'])
 def delete_post(id):
-    post = find_post_by_id(id)
+    posts = load_data()
+    post = find_post_by_id(id, posts)
 
     if post is None:
         abort(404, description="Post not found")
 
     # Remove the post from the list
-    POSTS.remove(post)
+    posts.remove(post)
+    save_data(posts)
 
     # Return deleted post
-    return jsonify(post)
+    return jsonify(serialize_post(post))
 
 
 @app.route('/api/posts/<int:id>', methods=['PUT'])
 def update_post(id):
-    post = find_post_by_id(id)
+    posts = load_data()
+    post = find_post_by_id(id, posts)
 
     if post is None:
         abort(404, description="Post not found")
@@ -104,33 +187,51 @@ def update_post(id):
 
     new_data = request.get_json()
 
-    # Update 'title' and 'content' fields if present in new_data
-    post.update({k: v for k, v in new_data.items() if k in ('title', 'content')})
+    # If date is in new_data, parse it to datetime
+    if 'date' in new_data:
+        try:
+            new_data['date'] = parse_berlin_datetime(new_data['date'])
+        except ValueError:
+            return jsonify({"error": "Date must be in format 'YYYY-MM-DD HH:MM:SS'."}), 400
 
+    # Update blog post fields if present in new_data
+    post.update({
+        k: v 
+        for k, v in new_data.items() 
+        if k in ('title', 'content', 'author', 'date')
+        })
+    
+    save_data(posts)
 
     # Return the updated post
-    return jsonify(post)
+    return jsonify(serialize_post(post))
 
 
 @app.route('/api/posts/search', methods=['GET'])
 def search_post():
+    posts = load_data()
+
      # Handle the GET request with a query parameter
     title = request.args.get('title', '').lower()
     content = request.args.get('content', '').lower()
+    author = request.args.get('author', '').lower()
+    date = request.args.get('date', '')
 
-    if not title and not content:
-        # Return empty list if no search criteria
+    # If not at least one search criteria, return empty list
+    if not any([title, content, author, date]):
         return jsonify([])
    
-    # Check if 'title' = substring of post's title if 'title' provided
-    # If 'title' = empty string return False, so no match (same for 'content')
+    # Check e.g. if 'title' = substring of post's title if 'title' provided
+    # If e.g. 'title' = empty string return False, so no match
     filtered_posts = [
-        post for post in POSTS 
+        post for post in posts 
         if (title in post['title'].lower() if title else False)
         or (content in post['content'].lower() if content else False)
+        or (author in post['author'].lower() if author else False)
+        or (date in post["date"].strftime("%Y-%m-%d %H:%M:%S") if date else False)
     ]
 
-    return jsonify(filtered_posts)
+    return jsonify([serialize_post(post) for post in filtered_posts])
 
 
 @app.errorhandler(404)
