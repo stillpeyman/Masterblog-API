@@ -1,0 +1,16 @@
+[
+    {
+        "author": "Peyman",
+        "content": "This is the first post.",
+        "title": "First post",
+        "id": 1,
+        "date": "2025-05-23 15:35:41"
+    },
+    {
+        "title": "Second Post",
+        "content": "This is my second post.",
+        "author": "Peyman",
+        "id": 2,
+        "date": "2025-05-23 17:03:20"
+    }
+]

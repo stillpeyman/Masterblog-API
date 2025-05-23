@@ -45,12 +45,14 @@ body {
     color: #aaa;
 }
 
+.primary_btn, 
 .input-field button {
     background-color: #4466ee;
     color: #fff;
     cursor: pointer;
 }
 
+.primary_btn:hover, 
 .input-field button:hover {
     background-color: #3355dd;
 }
@@ -89,3 +91,50 @@ body {
 .post button:hover {
     background-color: #cc0000;
 }
+
+/* Flex container for title and author/button rows */
+.row-inputs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.row-inputs input {
+  flex: 1;
+  height: 40px;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.5s ease;
+}
+
+/* Author field: fixed width, same style */
+#post-author {
+  width: 3000px;
+  flex: 0 0 160px;
+  height: 40px;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.5s ease;
+  margin-right: 0;
+}
+
+/* Style the textarea to match input fields but bigger */
+textarea#post-content {
+  width: 100%;
+  height: 150px;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  resize: vertical;
+  font-family: 'Poppins', sans-serif;
+  margin-bottom: 20px;
+}
+

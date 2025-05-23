@@ -14,11 +14,21 @@
             <input type="text" id="api-base-url" placeholder="Enter API Base URL" value="http://127.0.0.1:5002/api">
             <button onclick="loadPosts()">Load Posts</button>
         </div>
-        <div class="input-field">
+
+        <!-- Title field (alone in its row) -->
+        <div class="input-field row-inputs">
             <input type="text" id="post-title" placeholder="Enter Post Title">
-            <input type="text" id="post-content" placeholder="Enter Post Content">
-            <button onclick="addPost()">Add Post</button>
         </div>
+
+        <!-- Content field (big textarea) -->
+        <textarea type="text" id="post-content" placeholder="Enter Post Content"></textarea>
+
+        <!-- Author and Add Post button side by side -->
+        <div class="input-field row-inputs">
+            <input type="text" id="post-author" placeholder="Enter Post Author">
+            <button class="primary-btn" onclick="addPost()">Add Post</button>
+        </div>
+
         <div id="post-container">
             <!-- Blog posts will be inserted here by JavaScript -->
         </div>
