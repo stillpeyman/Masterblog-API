@@ -7,12 +7,15 @@ import json
 import os
 
 app = Flask(__name__)
-CORS(app)  # This will enable CORS for all routes
+# This will enable CORS for all routes
+CORS(app)  
 
 
 # Swagger UI configuration
-SWAGGER_URL = "/api/docs"  # URL for exposing Swagger UI (frontend)
-API_URL = "/static/masterblog.json"  # Path to your Swagger JSON spec
+# URL for exposing Swagger UI (frontend)
+SWAGGER_URL = "/api/docs"
+# Path to Swagger JSON spec  
+API_URL = "/static/masterblog.json"  
 
 swagger_ui_blueprint = get_swaggerui_blueprint(
     SWAGGER_URL,
@@ -32,11 +35,16 @@ def parse_berlin_datetime(date_input):
     Parse date/time input (str or datetime object) 
     and return a timezone-aware datetime in Berlin time.
     """
+    # pytz = Python TimeZone (library for handling time zones)
+    # <.timezone> function to get timezone object
     berlin = pytz.timezone("Europe/Berlin")
 
     if isinstance(date_input, datetime):
         # If already timezone-aware (like UTC), convert to Berlin
+        # <tzinfo> = timezone info included (aware datetime)
         if date_input.tzinfo:
+            # "As timezone" converts datetime into new timezone
+            # <.astimezone()> only works on aware datetime
             return date_input.astimezone(berlin)
         # If naive datetime (no tzinfo), localize to Berlin
         return berlin.localize(date_input)
@@ -257,3 +265,26 @@ def server_error(error):
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5002, debug=True)
+
+
+
+
+# SIMPLE EXAMPLE HOW DATETIME/PYTZ WORKS:
+# from datetime import datetime
+# import pytz
+
+# utc = pytz.utc
+# eastern = pytz.timezone("US/Eastern")
+
+# # Step 1: Get naive UTC datetime
+# naive_utc = datetime.utcnow()
+# print(naive_utc.tzinfo)  # None (naive)
+
+# # Step 2: Make it aware (in UTC)
+# dt_utc = naive_utc.replace(tzinfo=utc)
+# print(dt_utc.tzinfo)  # UTC (aware)
+
+# # Step 3: Convert to another timezone
+# dt_est = dt_utc.astimezone(eastern)
+# print(dt_est)  # Converted to US/Eastern time
+
